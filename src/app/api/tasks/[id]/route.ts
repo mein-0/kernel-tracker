@@ -11,10 +11,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { id } = await params;
   const body = await req.json();
 
-  const task = db.prepare("SELECT * FROM tasks WHERE id = ?").get(Number(id)) as
-    | { user_id: number }
-    | undefined;
+  const result = await db.execute({
+    sql: "SELECT * FROM tasks WHERE id = ?",
+    args: [Number(id)],
+  });
 
+  const task = result.rows[0];
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
@@ -25,7 +27,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const allowed = ["status", "notes", "cve_id", "ioctl_data", "vuln_data", "profile_data"];
   const sets: string[] = [];
-  const values: unknown[] = [];
+  const values: (string | number | null)[] = [];
 
   for (const key of allowed) {
     if (key in body) {
@@ -42,7 +44,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   sets.push("updated_at = datetime('now')");
   values.push(Number(id));
 
-  db.prepare(`UPDATE tasks SET ${sets.join(", ")} WHERE id = ?`).run(...values);
+  await db.execute({
+    sql: `UPDATE tasks SET ${sets.join(", ")} WHERE id = ?`,
+    args: values,
+  });
 
   return NextResponse.json({ ok: true });
 }
@@ -54,10 +59,12 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   }
 
   const { id } = await params;
-  const task = db.prepare("SELECT * FROM tasks WHERE id = ?").get(Number(id)) as
-    | { user_id: number }
-    | undefined;
+  const result = await db.execute({
+    sql: "SELECT * FROM tasks WHERE id = ?",
+    args: [Number(id)],
+  });
 
+  const task = result.rows[0];
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
@@ -66,6 +73,10 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  db.prepare("DELETE FROM tasks WHERE id = ?").run(Number(id));
+  await db.execute({
+    sql: "DELETE FROM tasks WHERE id = ?",
+    args: [Number(id)],
+  });
+
   return NextResponse.json({ ok: true });
 }

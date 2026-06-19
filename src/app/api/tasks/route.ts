@@ -8,16 +8,14 @@ export async function GET() {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  const tasks = db
-    .prepare(
-      `SELECT tasks.*, users.username
-       FROM tasks
-       JOIN users ON tasks.user_id = users.id
-       ORDER BY tasks.updated_at DESC`
-    )
-    .all();
+  const result = await db.execute(
+    `SELECT tasks.*, users.username
+     FROM tasks
+     JOIN users ON tasks.user_id = users.id
+     ORDER BY tasks.updated_at DESC`
+  );
 
-  return NextResponse.json(tasks);
+  return NextResponse.json(result.rows);
 }
 
 export async function POST(req: Request) {
@@ -42,12 +40,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "driver_name required" }, { status: 400 });
   }
 
-  const result = db
-    .prepare(
-      `INSERT INTO tasks (user_id, driver_name, driver_hash, status, ioctl_count, ioctl_data, vuln_data, profile_data, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .run(
+  const result = await db.execute({
+    sql: `INSERT INTO tasks (user_id, driver_name, driver_hash, status, ioctl_count, ioctl_data, vuln_data, profile_data, notes)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
       user.id,
       driver_name,
       driver_hash || null,
@@ -56,8 +52,9 @@ export async function POST(req: Request) {
       ioctl_data ? JSON.stringify(ioctl_data) : null,
       vuln_data ? JSON.stringify(vuln_data) : null,
       profile_data ? JSON.stringify(profile_data) : null,
-      notes || null
-    );
+      notes || null,
+    ],
+  });
 
-  return NextResponse.json({ id: result.lastInsertRowid, ok: true }, { status: 201 });
+  return NextResponse.json({ id: Number(result.lastInsertRowid), ok: true }, { status: 201 });
 }

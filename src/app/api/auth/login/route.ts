@@ -7,15 +7,21 @@ import { serialize } from "cookie";
 export async function POST(req: Request) {
   const { username, password } = await req.json();
 
-  const user = db.prepare("SELECT * FROM users WHERE username = ?").get(username) as
-    | { id: number; username: string; password: string; role: string }
-    | undefined;
+  const result = await db.execute({
+    sql: "SELECT * FROM users WHERE username = ?",
+    args: [username],
+  });
 
-  if (!user || !bcrypt.compareSync(password, user.password)) {
+  const user = result.rows[0];
+  if (!user || !bcrypt.compareSync(password, user.password as string)) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
-  const token = signToken({ id: user.id, username: user.username, role: user.role });
+  const token = signToken({
+    id: user.id as number,
+    username: user.username as string,
+    role: user.role as string,
+  });
 
   const cookie = serialize("token", token, {
     httpOnly: true,

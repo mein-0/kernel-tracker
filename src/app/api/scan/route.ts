@@ -19,29 +19,24 @@ export async function POST(req: Request) {
     );
   }
 
-  const insert = db.prepare(
-    `INSERT INTO tasks (user_id, driver_name, driver_hash, status, ioctl_count, ioctl_data, vuln_data, profile_data)
-     VALUES (?, ?, ?, 'researching', ?, ?, ?, ?)`
-  );
-
   const created: number[] = [];
 
-  const insertMany = db.transaction(() => {
-    for (const drv of drivers) {
-      const result = insert.run(
+  for (const drv of drivers) {
+    const result = await db.execute({
+      sql: `INSERT INTO tasks (user_id, driver_name, driver_hash, status, ioctl_count, ioctl_data, vuln_data, profile_data)
+            VALUES (?, ?, ?, 'researching', ?, ?, ?, ?)`,
+      args: [
         user_id,
         drv.filename || drv.target,
         drv.driver_hash || null,
         drv.ioctls?.length || 0,
         drv.ioctls ? JSON.stringify(drv.ioctls) : null,
         drv.vulnerabilities ? JSON.stringify(drv.vulnerabilities) : null,
-        drv.profile ? JSON.stringify(drv.profile) : null
-      );
-      created.push(result.lastInsertRowid as number);
-    }
-  });
-
-  insertMany();
+        drv.profile ? JSON.stringify(drv.profile) : null,
+      ],
+    });
+    created.push(Number(result.lastInsertRowid));
+  }
 
   return NextResponse.json(
     { ok: true, created: created.length, task_ids: created },

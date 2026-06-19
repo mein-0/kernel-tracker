@@ -11,16 +11,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
 
-  const existing = db.prepare("SELECT id FROM users WHERE username = ?").get(username);
-  if (existing) {
+  const existing = await db.execute({
+    sql: "SELECT id FROM users WHERE username = ?",
+    args: [username],
+  });
+  if (existing.rows.length > 0) {
     return NextResponse.json({ error: "Username taken" }, { status: 409 });
   }
 
   const hash = bcrypt.hashSync(password, 10);
-  const result = db.prepare("INSERT INTO users (username, password) VALUES (?, ?)").run(username, hash);
+  const result = await db.execute({
+    sql: "INSERT INTO users (username, password) VALUES (?, ?)",
+    args: [username, hash],
+  });
 
   const token = signToken({
-    id: result.lastInsertRowid as number,
+    id: Number(result.lastInsertRowid),
     username,
     role: "researcher",
   });
