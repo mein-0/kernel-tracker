@@ -49,6 +49,42 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     args: values,
   });
 
+  if (body.status) {
+    const allUsers = await db.execute(
+      `SELECT id FROM users WHERE id != ?`,
+      [user.id]
+    );
+    const statusLabels: Record<string, string> = {
+      researching: "Researching",
+      exploit_dev: "Exploit Dev",
+      exploit_works: "Exploit Works",
+      lpe: "LPE",
+      reporting: "Reporting",
+      done: "Done",
+    };
+    const msg = `${user.username} moved "${task.driver_name}" to ${statusLabels[body.status] || body.status}`;
+    for (const u of allUsers.rows) {
+      await db.execute({
+        sql: `INSERT INTO notifications (user_id, type, message, task_id, from_user) VALUES (?, 'status_change', ?, ?, ?)`,
+        args: [u.id as number, msg, Number(id), user.username],
+      });
+    }
+  }
+
+  if (body.cve_id && body.cve_id !== task.cve_id) {
+    const allUsers = await db.execute(
+      `SELECT id FROM users WHERE id != ?`,
+      [user.id]
+    );
+    const msg = `${user.username} assigned ${body.cve_id} to "${task.driver_name}"`;
+    for (const u of allUsers.rows) {
+      await db.execute({
+        sql: `INSERT INTO notifications (user_id, type, message, task_id, from_user) VALUES (?, 'cve_assigned', ?, ?, ?)`,
+        args: [u.id as number, msg, Number(id), user.username],
+      });
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }
 
