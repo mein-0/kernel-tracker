@@ -13,12 +13,15 @@ const STATUSES: TaskStatus[] = [
   "done",
 ];
 
+type Tab = "my-tasks" | "team" | "profile";
+
 export default function DashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [user, setUser] = useState<{ id: number; username: string } | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [newDriver, setNewDriver] = useState("");
   const [expandedTask, setExpandedTask] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>("my-tasks");
   const router = useRouter();
 
   useEffect(() => {
@@ -97,114 +100,262 @@ export default function DashboardPage() {
   const myTasks = tasks.filter((t) => t.user_id === user.id);
   const teamTasks = tasks.filter((t) => t.user_id !== user.id);
 
-  const stats = {
+  const myStats = {
     total: myTasks.length,
     active: myTasks.filter((t) => t.status !== "done").length,
     cves: myTasks.filter((t) => t.cve_id).length,
+    done: myTasks.filter((t) => t.status === "done").length,
   };
 
+  const teamMembers = [...new Set(teamTasks.map((t) => t.username))];
+
   return (
-    <div className="flex-1 flex flex-col">
-      {/* Header */}
-      <header className="border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-bold text-red-500">KERNEL TRACKER</h1>
-          <span className="text-zinc-600 text-sm">|</span>
-          <span className="text-zinc-400 text-sm">{user.username}</span>
+    <div className="flex-1 flex">
+      {/* Sidebar */}
+      <aside className="w-56 border-r border-zinc-800 flex flex-col">
+        <div className="px-4 py-5 border-b border-zinc-800">
+          <h1 className="text-sm font-bold text-red-500 tracking-wider">KERNEL TRACKER</h1>
         </div>
-        <div className="flex items-center gap-4">
+
+        <nav className="flex-1 py-3">
           <button
-            onClick={() => setShowAdd(true)}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 text-xs transition-colors"
+            onClick={() => setActiveTab("my-tasks")}
+            className={`w-full text-left px-4 py-2.5 text-xs flex items-center gap-3 transition-colors ${
+              activeTab === "my-tasks"
+                ? "bg-zinc-800/50 text-white border-l-2 border-red-500"
+                : "text-zinc-500 hover:text-zinc-300 border-l-2 border-transparent"
+            }`}
           >
-            + NEW TASK
+            {">"} MY TASKS
+            <span className="ml-auto text-zinc-600">{myTasks.length}</span>
           </button>
-          <button onClick={logout} className="text-zinc-500 hover:text-zinc-300 text-xs">
+
+          <button
+            onClick={() => setActiveTab("team")}
+            className={`w-full text-left px-4 py-2.5 text-xs flex items-center gap-3 transition-colors ${
+              activeTab === "team"
+                ? "bg-zinc-800/50 text-white border-l-2 border-red-500"
+                : "text-zinc-500 hover:text-zinc-300 border-l-2 border-transparent"
+            }`}
+          >
+            {">"} TEAM BOARD
+            <span className="ml-auto text-zinc-600">{teamTasks.length}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("profile")}
+            className={`w-full text-left px-4 py-2.5 text-xs flex items-center gap-3 transition-colors ${
+              activeTab === "profile"
+                ? "bg-zinc-800/50 text-white border-l-2 border-red-500"
+                : "text-zinc-500 hover:text-zinc-300 border-l-2 border-transparent"
+            }`}
+          >
+            {">"} PROFILE
+          </button>
+        </nav>
+
+        <div className="px-4 py-4 border-t border-zinc-800">
+          <p className="text-xs text-zinc-500 mb-2">@{user.username}</p>
+          <button
+            onClick={logout}
+            className="text-xs text-zinc-600 hover:text-red-500 transition-colors"
+          >
             LOGOUT
           </button>
         </div>
-      </header>
+      </aside>
 
-      {/* Stats */}
-      <div className="px-6 py-4 border-b border-zinc-800 flex gap-8">
-        <div>
-          <span className="text-zinc-500 text-xs">TOTAL</span>
-          <p className="text-2xl font-bold">{stats.total}</p>
-        </div>
-        <div>
-          <span className="text-zinc-500 text-xs">ACTIVE</span>
-          <p className="text-2xl font-bold text-yellow-400">{stats.active}</p>
-        </div>
-        <div>
-          <span className="text-zinc-500 text-xs">CVEs</span>
-          <p className="text-2xl font-bold text-red-500">{stats.cves}</p>
-        </div>
-      </div>
+      {/* Main content */}
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {/* My Tasks tab */}
+        {activeTab === "my-tasks" && (
+          <>
+            <header className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold">MY RESEARCH</h2>
+                <p className="text-xs text-zinc-600 mt-1">
+                  {myStats.active} active / {myStats.done} done / {myStats.cves} CVEs
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAdd(true)}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 text-xs transition-colors"
+              >
+                + NEW TASK
+              </button>
+            </header>
 
-      {/* Add task modal */}
-      {showAdd && (
-        <div className="px-6 py-3 border-b border-zinc-800 flex gap-2">
-          <input
-            type="text"
-            placeholder="Driver name (e.g. GVCIDrv64.sys)"
-            value={newDriver}
-            onChange={(e) => setNewDriver(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addTask()}
-            className="flex-1 bg-zinc-900 border border-zinc-700 px-3 py-2 text-sm focus:outline-none focus:border-red-500"
-            autoFocus
-          />
-          <button onClick={addTask} className="bg-red-600 hover:bg-red-700 text-white px-4 text-xs">
-            ADD
-          </button>
-          <button onClick={() => setShowAdd(false)} className="text-zinc-500 hover:text-zinc-300 px-2 text-xs">
-            CANCEL
-          </button>
-        </div>
-      )}
+            {/* Stats bar */}
+            <div className="px-6 py-3 border-b border-zinc-800 flex gap-6">
+              {STATUSES.map((s) => {
+                const count = myTasks.filter((t) => t.status === s).length;
+                return (
+                  <div key={s} className="flex items-center gap-2">
+                    <span className={`text-xs px-1.5 py-0.5 border ${STATUS_COLORS[s]}`}>
+                      {count}
+                    </span>
+                    <span className="text-xs text-zinc-600">{STATUS_LABELS[s]}</span>
+                  </div>
+                );
+              })}
+            </div>
 
-      {/* Pipeline view */}
-      <div className="flex-1 overflow-auto">
-        {/* My tasks */}
-        <div className="px-6 py-4">
-          <h2 className="text-xs text-zinc-500 mb-3 tracking-widest">MY RESEARCH</h2>
-          {myTasks.length === 0 && (
-            <p className="text-zinc-600 text-sm">No tasks yet. Click + NEW TASK to start.</p>
-          )}
-          {myTasks.map((task) => (
-            <TaskRow
-              key={task.id}
-              task={task}
-              expanded={expandedTask === task.id}
-              onToggle={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
-              onStatusChange={(s) => updateStatus(task.id, s)}
-              onNotesChange={(n) => updateNotes(task.id, n)}
-              onCveChange={(c) => updateCve(task.id, c)}
-              onDelete={() => deleteTask(task.id)}
-              isOwner={true}
-            />
-          ))}
-        </div>
+            {showAdd && (
+              <div className="px-6 py-3 border-b border-zinc-800 flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Driver name (e.g. GVCIDrv64.sys)"
+                  value={newDriver}
+                  onChange={(e) => setNewDriver(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addTask()}
+                  className="flex-1 bg-zinc-900 border border-zinc-700 px-3 py-2 text-sm focus:outline-none focus:border-red-500"
+                  autoFocus
+                />
+                <button onClick={addTask} className="bg-red-600 hover:bg-red-700 text-white px-4 text-xs">
+                  ADD
+                </button>
+                <button onClick={() => setShowAdd(false)} className="text-zinc-500 hover:text-zinc-300 px-2 text-xs">
+                  CANCEL
+                </button>
+              </div>
+            )}
 
-        {/* Team tasks */}
-        {teamTasks.length > 0 && (
-          <div className="px-6 py-4 border-t border-zinc-800">
-            <h2 className="text-xs text-zinc-500 mb-3 tracking-widest">TEAM ACTIVITY</h2>
-            {teamTasks.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                expanded={expandedTask === task.id}
-                onToggle={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
-                onStatusChange={() => {}}
-                onNotesChange={() => {}}
-                onCveChange={() => {}}
-                onDelete={() => {}}
-                isOwner={false}
-              />
-            ))}
-          </div>
+            <div className="flex-1 overflow-auto px-6 py-4">
+              {myTasks.length === 0 && (
+                <p className="text-zinc-600 text-sm">No tasks yet. Click + NEW TASK to start.</p>
+              )}
+              {myTasks.map((task) => (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  expanded={expandedTask === task.id}
+                  onToggle={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
+                  onStatusChange={(s) => updateStatus(task.id, s)}
+                  onNotesChange={(n) => updateNotes(task.id, n)}
+                  onCveChange={(c) => updateCve(task.id, c)}
+                  onDelete={() => deleteTask(task.id)}
+                  isOwner={true}
+                  showOwner={false}
+                />
+              ))}
+            </div>
+          </>
         )}
-      </div>
+
+        {/* Team Board tab */}
+        {activeTab === "team" && (
+          <>
+            <header className="px-6 py-4 border-b border-zinc-800">
+              <h2 className="text-sm font-bold">TEAM BOARD</h2>
+              <p className="text-xs text-zinc-600 mt-1">
+                {teamTasks.length} tasks / {teamMembers.length} members
+              </p>
+            </header>
+
+            <div className="flex-1 overflow-auto px-6 py-4">
+              {tasks.length === 0 && (
+                <p className="text-zinc-600 text-sm">No team activity yet.</p>
+              )}
+              {tasks.map((task) => (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  expanded={expandedTask === task.id}
+                  onToggle={() => setExpandedTask(expandedTask === task.id ? null : task.id)}
+                  onStatusChange={
+                    task.user_id === user.id ? (s) => updateStatus(task.id, s) : () => {}
+                  }
+                  onNotesChange={
+                    task.user_id === user.id ? (n) => updateNotes(task.id, n) : () => {}
+                  }
+                  onCveChange={
+                    task.user_id === user.id ? (c) => updateCve(task.id, c) : () => {}
+                  }
+                  onDelete={
+                    task.user_id === user.id ? () => deleteTask(task.id) : () => {}
+                  }
+                  isOwner={task.user_id === user.id}
+                  showOwner={true}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Profile tab */}
+        {activeTab === "profile" && (
+          <>
+            <header className="px-6 py-4 border-b border-zinc-800">
+              <h2 className="text-sm font-bold">PROFILE</h2>
+            </header>
+
+            <div className="flex-1 overflow-auto px-6 py-6 space-y-6">
+              <div className="border border-zinc-800 p-5">
+                <p className="text-xs text-zinc-500 mb-1">USERNAME</p>
+                <p className="text-lg font-bold text-red-500">@{user.username}</p>
+              </div>
+
+              <div className="grid grid-cols-4 gap-3">
+                <div className="border border-zinc-800 p-4 text-center">
+                  <p className="text-2xl font-bold">{myStats.total}</p>
+                  <p className="text-xs text-zinc-500 mt-1">TOTAL</p>
+                </div>
+                <div className="border border-zinc-800 p-4 text-center">
+                  <p className="text-2xl font-bold text-yellow-400">{myStats.active}</p>
+                  <p className="text-xs text-zinc-500 mt-1">ACTIVE</p>
+                </div>
+                <div className="border border-zinc-800 p-4 text-center">
+                  <p className="text-2xl font-bold text-green-400">{myStats.done}</p>
+                  <p className="text-xs text-zinc-500 mt-1">DONE</p>
+                </div>
+                <div className="border border-zinc-800 p-4 text-center">
+                  <p className="text-2xl font-bold text-red-500">{myStats.cves}</p>
+                  <p className="text-xs text-zinc-500 mt-1">CVEs</p>
+                </div>
+              </div>
+
+              <div className="border border-zinc-800 p-5">
+                <p className="text-xs text-zinc-500 mb-3">STATUS BREAKDOWN</p>
+                {STATUSES.map((s) => {
+                  const count = myTasks.filter((t) => t.status === s).length;
+                  const pct = myStats.total > 0 ? (count / myStats.total) * 100 : 0;
+                  return (
+                    <div key={s} className="flex items-center gap-3 mb-2">
+                      <span className="text-xs text-zinc-500 w-28">{STATUS_LABELS[s]}</span>
+                      <div className="flex-1 bg-zinc-900 h-2">
+                        <div
+                          className={`h-full ${
+                            s === "done" ? "bg-green-500" : s === "lpe" ? "bg-red-500" : "bg-zinc-600"
+                          }`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-zinc-600 w-6 text-right">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {myTasks.filter((t) => t.cve_id).length > 0 && (
+                <div className="border border-zinc-800 p-5">
+                  <p className="text-xs text-zinc-500 mb-3">MY CVEs</p>
+                  {myTasks
+                    .filter((t) => t.cve_id)
+                    .map((t) => (
+                      <div key={t.id} className="flex items-center gap-3 mb-2">
+                        <span className="text-xs text-red-500 font-bold">{t.cve_id}</span>
+                        <span className="text-xs text-zinc-400">{t.driver_name}</span>
+                        <span className={`text-xs px-1.5 py-0.5 border ${STATUS_COLORS[t.status]}`}>
+                          {STATUS_LABELS[t.status]}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </main>
     </div>
   );
 }
@@ -218,6 +369,7 @@ function TaskRow({
   onCveChange,
   onDelete,
   isOwner,
+  showOwner,
 }: {
   task: Task;
   expanded: boolean;
@@ -227,6 +379,7 @@ function TaskRow({
   onCveChange: (c: string) => void;
   onDelete: () => void;
   isOwner: boolean;
+  showOwner: boolean;
 }) {
   const [notes, setNotes] = useState(task.notes || "");
   const [cve, setCve] = useState(task.cve_id || "");
@@ -237,35 +390,34 @@ function TaskRow({
 
   return (
     <div className="border border-zinc-800 mb-2">
-      {/* Main row */}
       <div
         className="flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-zinc-900/50"
         onClick={onToggle}
       >
-        <span className="text-zinc-600 text-xs w-6">{expanded ? "v" : ">"}</span>
+        <span className="text-zinc-600 text-xs w-4">{expanded ? "v" : ">"}</span>
         <span className="flex-1 text-sm">{task.driver_name}</span>
-        {task.username && !isOwner && (
-          <span className="text-zinc-600 text-xs">@{task.username}</span>
+        {showOwner && task.username && (
+          <span className={`text-xs px-2 py-0.5 border border-zinc-700 ${
+            isOwner ? "text-red-400" : "text-zinc-500"
+          }`}>
+            @{task.username}
+          </span>
         )}
         {task.cve_id && (
           <span className="text-red-500 text-xs font-bold">{task.cve_id}</span>
         )}
         <span className="text-zinc-500 text-xs">{task.ioctl_count} IOCTLs</span>
-        <span
-          className={`text-xs px-2 py-0.5 border ${STATUS_COLORS[task.status]}`}
-        >
+        <span className={`text-xs px-2 py-0.5 border ${STATUS_COLORS[task.status]}`}>
           {STATUS_LABELS[task.status]}
         </span>
       </div>
 
-      {/* Expanded details */}
       {expanded && (
         <div className="border-t border-zinc-800 px-4 py-4 space-y-4">
-          {/* Status pipeline */}
           {isOwner && (
             <div>
               <label className="text-xs text-zinc-500 mb-2 block">STATUS</label>
-              <div className="flex gap-1">
+              <div className="flex gap-1 flex-wrap">
                 {STATUSES.map((s) => (
                   <button
                     key={s}
@@ -283,7 +435,13 @@ function TaskRow({
             </div>
           )}
 
-          {/* Profile info */}
+          {!isOwner && showOwner && (
+            <div>
+              <label className="text-xs text-zinc-500 mb-1 block">ASSIGNED TO</label>
+              <p className="text-sm text-zinc-300">@{task.username}</p>
+            </div>
+          )}
+
           {profile.purpose && (
             <div>
               <label className="text-xs text-zinc-500 mb-1 block">DRIVER PURPOSE</label>
@@ -310,7 +468,6 @@ function TaskRow({
             </div>
           )}
 
-          {/* IOCTLs */}
           {ioctls.length > 0 && (
             <div>
               <label className="text-xs text-zinc-500 mb-1 block">IOCTLs</label>
@@ -327,7 +484,6 @@ function TaskRow({
             </div>
           )}
 
-          {/* Vulns */}
           {vulns.driver_level && vulns.driver_level.length > 0 && (
             <div>
               <label className="text-xs text-zinc-500 mb-1 block">FINDINGS</label>
@@ -350,7 +506,6 @@ function TaskRow({
             </div>
           )}
 
-          {/* CVE */}
           {isOwner && (
             <div>
               <label className="text-xs text-zinc-500 mb-1 block">CVE ID</label>
@@ -365,7 +520,6 @@ function TaskRow({
             </div>
           )}
 
-          {/* Notes */}
           {isOwner && (
             <div>
               <label className="text-xs text-zinc-500 mb-1 block">NOTES</label>
@@ -380,7 +534,6 @@ function TaskRow({
             </div>
           )}
 
-          {/* Delete */}
           {isOwner && (
             <button
               onClick={onDelete}
