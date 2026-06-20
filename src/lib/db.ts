@@ -6,15 +6,17 @@ const db = createClient({
 });
 
 async function init() {
-  await db.executeMultiple(`
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       role TEXT DEFAULT 'researcher',
       created_at TEXT DEFAULT (datetime('now'))
-    );
+    )
+  `);
 
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS tasks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -30,8 +32,10 @@ async function init() {
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (user_id) REFERENCES users(id)
-    );
+    )
+  `);
 
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS notifications (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -42,15 +46,19 @@ async function init() {
       is_read INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (user_id) REFERENCES users(id)
-    );
+    )
+  `);
 
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS presence (
       user_id INTEGER PRIMARY KEY,
       username TEXT NOT NULL,
       last_seen TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (user_id) REFERENCES users(id)
-    );
+    )
+  `);
 
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS activity_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -61,7 +69,7 @@ async function init() {
       detail TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (user_id) REFERENCES users(id)
-    );
+    )
   `);
 }
 
