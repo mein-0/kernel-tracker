@@ -662,7 +662,11 @@ function IoctlDetailModal({
   onClose: () => void;
 }) {
   const ioctls: IOCTL[] = task.ioctl_data ? JSON.parse(task.ioctl_data) : [];
-  const vulns = task.vuln_data ? JSON.parse(task.vuln_data) : {};
+  const rawVulns = task.vuln_data ? JSON.parse(task.vuln_data) : {};
+  const vulns = {
+    ...rawVulns,
+    ioctl_level: Array.isArray(rawVulns.ioctl_level) ? rawVulns.ioctl_level : [],
+  };
   const ioctl = ioctls[ioctlIdx];
   if (!ioctl) return null;
 
@@ -845,7 +849,11 @@ function TaskRow({
   const [cve, setCve] = useState(task.cve_id || "");
 
   const ioctls: IOCTL[] = task.ioctl_data ? JSON.parse(task.ioctl_data) : [];
-  const vulns = task.vuln_data ? JSON.parse(task.vuln_data) : {};
+  const rawVulns = task.vuln_data ? JSON.parse(task.vuln_data) : {};
+  const vulns = {
+    ...rawVulns,
+    ioctl_level: Array.isArray(rawVulns.ioctl_level) ? rawVulns.ioctl_level : [],
+  };
   const profile = task.profile_data ? JSON.parse(task.profile_data) : {};
 
   return (
