@@ -56,5 +56,11 @@ export async function POST(req: Request) {
     ],
   });
 
-  return NextResponse.json({ id: Number(result.lastInsertRowid), ok: true }, { status: 201 });
+  const taskId = Number(result.lastInsertRowid);
+  await db.execute({
+    sql: `INSERT INTO activity_log (user_id, username, task_id, driver_name, action, detail) VALUES (?, ?, ?, ?, 'task_created', ?)`,
+    args: [user.id, user.username, taskId, driver_name, `${ioctl_count} IOCTLs`],
+  });
+
+  return NextResponse.json({ id: taskId, ok: true }, { status: 201 });
 }

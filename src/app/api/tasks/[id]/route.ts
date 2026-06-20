@@ -49,19 +49,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     args: values,
   });
 
-  if (body.status) {
-    const allUsers = await db.execute(
-      `SELECT id FROM users WHERE id != ?`,
-      [user.id]
-    );
-    const statusLabels: Record<string, string> = {
-      researching: "Researching",
-      exploit_dev: "Exploit Dev",
-      exploit_works: "Exploit Works",
-      lpe: "LPE",
-      reporting: "Reporting",
-      done: "Done",
-    };
+  const statusLabels: Record<string, string> = {
+    researching: "Researching",
+    exploit_dev: "Exploit Dev",
+    exploit_works: "Exploit Works",
+    lpe: "LPE",
+    reporting: "Reporting",
+    done: "Done",
+  };
+
+  if (body.status && body.status !== task.status) {
+    const allUsers = await db.execute(`SELECT id FROM users WHERE id != ?`, [user.id]);
     const msg = `${user.username} moved "${task.driver_name}" to ${statusLabels[body.status] || body.status}`;
     for (const u of allUsers.rows) {
       await db.execute({
@@ -69,13 +67,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         args: [u.id as number, msg, Number(id), user.username],
       });
     }
+    await db.execute({
+      sql: `INSERT INTO activity_log (user_id, username, task_id, driver_name, action, detail) VALUES (?, ?, ?, ?, 'status_change', ?)`,
+      args: [user.id, user.username, Number(id), task.driver_name as string, `${statusLabels[task.status as string] || task.status} -> ${statusLabels[body.status] || body.status}`],
+    });
   }
 
   if (body.cve_id && body.cve_id !== task.cve_id) {
-    const allUsers = await db.execute(
-      `SELECT id FROM users WHERE id != ?`,
-      [user.id]
-    );
+    const allUsers = await db.execute(`SELECT id FROM users WHERE id != ?`, [user.id]);
     const msg = `${user.username} assigned ${body.cve_id} to "${task.driver_name}"`;
     for (const u of allUsers.rows) {
       await db.execute({
@@ -83,6 +82,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         args: [u.id as number, msg, Number(id), user.username],
       });
     }
+    await db.execute({
+      sql: `INSERT INTO activity_log (user_id, username, task_id, driver_name, action, detail) VALUES (?, ?, ?, ?, 'cve_assigned', ?)`,
+      args: [user.id, user.username, Number(id), task.driver_name as string, body.cve_id],
+    });
+  }
+
+  if (body.notes && body.notes !== task.notes) {
+    await db.execute({
+      sql: `INSERT INTO activity_log (user_id, username, task_id, driver_name, action, detail) VALUES (?, ?, ?, ?, 'notes_updated', ?)`,
+      args: [user.id, user.username, Number(id), task.driver_name as string, body.notes.substring(0, 100)],
+    });
   }
 
   return NextResponse.json({ ok: true });

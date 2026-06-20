@@ -13,7 +13,7 @@ const STATUSES: TaskStatus[] = [
   "done",
 ];
 
-type Tab = "my-tasks" | "team" | "profile";
+type Tab = "my-tasks" | "team" | "profile" | "stats" | "compare" | "activity";
 
 interface Notification {
   id: number;
@@ -242,6 +242,41 @@ export default function DashboardPage() {
           >
             {">"} PROFILE
           </button>
+
+          <div className="mt-3 pt-3 border-t border-zinc-800/50">
+            <button
+              onClick={() => setActiveTab("stats")}
+              className={`w-full text-left px-4 py-2.5 text-xs flex items-center gap-3 transition-colors ${
+                activeTab === "stats"
+                  ? "bg-zinc-800/50 text-white border-l-2 border-red-500"
+                  : "text-zinc-500 hover:text-zinc-300 border-l-2 border-transparent"
+              }`}
+            >
+              {">"} STATISTICS
+            </button>
+
+            <button
+              onClick={() => setActiveTab("compare")}
+              className={`w-full text-left px-4 py-2.5 text-xs flex items-center gap-3 transition-colors ${
+                activeTab === "compare"
+                  ? "bg-zinc-800/50 text-white border-l-2 border-red-500"
+                  : "text-zinc-500 hover:text-zinc-300 border-l-2 border-transparent"
+              }`}
+            >
+              {">"} COMPARE
+            </button>
+
+            <button
+              onClick={() => setActiveTab("activity")}
+              className={`w-full text-left px-4 py-2.5 text-xs flex items-center gap-3 transition-colors ${
+                activeTab === "activity"
+                  ? "bg-zinc-800/50 text-white border-l-2 border-red-500"
+                  : "text-zinc-500 hover:text-zinc-300 border-l-2 border-transparent"
+              }`}
+            >
+              {">"} ACTIVITY LOG
+            </button>
+          </div>
         </nav>
 
         {/* Online users */}
@@ -595,6 +630,14 @@ export default function DashboardPage() {
             </div>
           </>
         )}
+        {/* Statistics tab */}
+        {activeTab === "stats" && <StatsTab />}
+
+        {/* Compare tab */}
+        {activeTab === "compare" && <CompareTab />}
+
+        {/* Activity Log tab */}
+        {activeTab === "activity" && <ActivityTab />}
       </main>
 
       {/* IOCTL Detail Modal */}
@@ -1000,5 +1043,475 @@ function TaskRow({
         </div>
       )}
     </div>
+  );
+}
+
+/* ============ STATISTICS TAB ============ */
+
+interface StatsData {
+  overview: { totalTasks: number; totalCves: number; totalCritical: number; totalIoctls: number; totalUsers: number };
+  statusBreakdown: Record<string, number>;
+  riskBreakdown: Record<string, number>;
+  perUser: { username: string; total: number; active: number; done: number; cves: number; critical: number }[];
+  weeklyActivity: Record<string, number>;
+  topDrivers: { driver_name: string; username: string; risk: string; score: number; ioctl_count: number; status: string; cve_id: string | null }[];
+  recentActivity: { id: number; username: string; driver_name: string; action: string; detail: string; created_at: string }[];
+}
+
+function StatsTab() {
+  const [stats, setStats] = useState<StatsData | null>(null);
+
+  useEffect(() => {
+    fetch("/api/stats")
+      .then((r) => r.json())
+      .then(setStats)
+      .catch(() => {});
+  }, []);
+
+  if (!stats) return <div className="p-6 text-zinc-600 text-sm">Loading...</div>;
+
+  const riskColors: Record<string, string> = {
+    CRITICAL: "bg-red-500",
+    HIGH: "bg-orange-500",
+    MEDIUM: "bg-yellow-500",
+    LOW: "bg-zinc-500",
+  };
+
+  const actDays = Object.entries(stats.weeklyActivity).sort(([a], [b]) => a.localeCompare(b)).slice(-14);
+  const maxAct = Math.max(...actDays.map(([, v]) => v), 1);
+
+  return (
+    <>
+      <header className="px-6 py-4 border-b border-zinc-800">
+        <h2 className="text-sm font-bold">TEAM STATISTICS</h2>
+      </header>
+
+      <div className="flex-1 overflow-auto px-6 py-6 space-y-6">
+        {/* Overview cards */}
+        <div className="grid grid-cols-5 gap-3">
+          <div className="border border-zinc-800 p-4 text-center">
+            <p className="text-2xl font-bold">{stats.overview.totalTasks}</p>
+            <p className="text-xs text-zinc-500 mt-1">TOTAL TASKS</p>
+          </div>
+          <div className="border border-zinc-800 p-4 text-center">
+            <p className="text-2xl font-bold text-red-500">{stats.overview.totalCves}</p>
+            <p className="text-xs text-zinc-500 mt-1">CVEs</p>
+          </div>
+          <div className="border border-zinc-800 p-4 text-center">
+            <p className="text-2xl font-bold text-red-400">{stats.overview.totalCritical}</p>
+            <p className="text-xs text-zinc-500 mt-1">CRITICAL</p>
+          </div>
+          <div className="border border-zinc-800 p-4 text-center">
+            <p className="text-2xl font-bold text-yellow-400">{stats.overview.totalIoctls}</p>
+            <p className="text-xs text-zinc-500 mt-1">IOCTLs</p>
+          </div>
+          <div className="border border-zinc-800 p-4 text-center">
+            <p className="text-2xl font-bold">{stats.overview.totalUsers}</p>
+            <p className="text-xs text-zinc-500 mt-1">RESEARCHERS</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-6">
+          {/* Risk distribution */}
+          <div className="border border-zinc-800 p-5">
+            <p className="text-xs text-zinc-500 mb-3">RISK DISTRIBUTION</p>
+            {Object.entries(stats.riskBreakdown).map(([risk, count]) => {
+              const total = Object.values(stats.riskBreakdown).reduce((a, b) => a + b, 0);
+              const pct = total > 0 ? (count / total) * 100 : 0;
+              return (
+                <div key={risk} className="flex items-center gap-3 mb-2">
+                  <span className="text-xs text-zinc-500 w-20">{risk}</span>
+                  <div className="flex-1 bg-zinc-900 h-3">
+                    <div className={`h-full ${riskColors[risk] || "bg-zinc-600"}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-xs text-zinc-400 w-8 text-right">{count}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Status distribution */}
+          <div className="border border-zinc-800 p-5">
+            <p className="text-xs text-zinc-500 mb-3">STATUS DISTRIBUTION</p>
+            {STATUSES.map((s) => {
+              const count = stats.statusBreakdown[s] || 0;
+              const total = Object.values(stats.statusBreakdown).reduce((a, b) => a + b, 0);
+              const pct = total > 0 ? (count / total) * 100 : 0;
+              return (
+                <div key={s} className="flex items-center gap-3 mb-2">
+                  <span className="text-xs text-zinc-500 w-28">{STATUS_LABELS[s]}</span>
+                  <div className="flex-1 bg-zinc-900 h-3">
+                    <div className={`h-full ${s === "done" ? "bg-green-500" : s === "lpe" ? "bg-red-500" : "bg-zinc-500"}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-xs text-zinc-400 w-8 text-right">{count}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Activity chart */}
+        {actDays.length > 0 && (
+          <div className="border border-zinc-800 p-5">
+            <p className="text-xs text-zinc-500 mb-3">ACTIVITY (LAST 14 DAYS)</p>
+            <div className="flex items-end gap-1 h-24">
+              {actDays.map(([day, count]) => (
+                <div key={day} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full bg-zinc-900 relative flex-1 flex items-end">
+                    <div
+                      className="w-full bg-red-500/60"
+                      style={{ height: `${(count / maxAct) * 100}%`, minHeight: count > 0 ? "4px" : "0" }}
+                    />
+                  </div>
+                  <span className="text-xs text-zinc-700" style={{ fontSize: "9px" }}>
+                    {day.slice(5)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Leaderboard */}
+        <div className="border border-zinc-800 p-5">
+          <p className="text-xs text-zinc-500 mb-3">RESEARCHER LEADERBOARD</p>
+          <div className="space-y-2">
+            {stats.perUser
+              .sort((a, b) => b.cves - a.cves || b.total - a.total)
+              .map((u, i) => (
+                <div key={u.username} className="flex items-center gap-4 px-3 py-2 bg-zinc-900/50">
+                  <span className="text-xs text-zinc-600 w-5">#{i + 1}</span>
+                  <span className="text-sm text-zinc-300 flex-1">@{u.username}</span>
+                  <span className="text-xs text-zinc-500">{u.total} tasks</span>
+                  <span className="text-xs text-green-400">{u.done} done</span>
+                  <span className="text-xs text-red-400">{u.cves} CVEs</span>
+                  <span className="text-xs text-red-500">{u.critical} crit</span>
+                </div>
+              ))}
+          </div>
+        </div>
+
+        {/* Top drivers by risk */}
+        <div className="border border-zinc-800 p-5">
+          <p className="text-xs text-zinc-500 mb-3">TOP DRIVERS BY RISK SCORE</p>
+          <div className="space-y-1">
+            {stats.topDrivers.map((d, i) => (
+              <div key={i} className="flex items-center gap-4 px-3 py-2 bg-zinc-900/50 text-xs">
+                <span className="text-zinc-300 flex-1">{d.driver_name}</span>
+                <span className="text-zinc-500">@{d.username}</span>
+                <span
+                  className={`px-1.5 py-0.5 border ${
+                    d.risk === "CRITICAL"
+                      ? "bg-red-500/20 text-red-400 border-red-500/30"
+                      : d.risk === "HIGH"
+                      ? "bg-orange-500/20 text-orange-400 border-orange-500/30"
+                      : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
+                  }`}
+                >
+                  {d.risk} ({d.score})
+                </span>
+                <span className="text-zinc-500">{d.ioctl_count} IOCTLs</span>
+                {d.cve_id && <span className="text-red-500 font-bold">{d.cve_id}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ============ COMPARE TAB ============ */
+
+function CompareTab() {
+  const [duplicates, setDuplicates] = useState<{ driver_name: string; scan_count: number }[]>([]);
+  const [selectedDriver, setSelectedDriver] = useState<string | null>(null);
+  const [scans, setScans] = useState<Task[]>([]);
+  const [compareIdxs, setCompareIdxs] = useState<[number, number] | null>(null);
+
+  useEffect(() => {
+    fetch("/api/compare")
+      .then((r) => r.json())
+      .then(setDuplicates)
+      .catch(() => {});
+  }, []);
+
+  async function selectDriver(name: string) {
+    setSelectedDriver(name);
+    setCompareIdxs(null);
+    const res = await fetch(`/api/compare?driver=${encodeURIComponent(name)}`);
+    if (res.ok) {
+      const data = await res.json();
+      setScans(data);
+      if (data.length >= 2) setCompareIdxs([0, 1]);
+    }
+  }
+
+  function renderIoctlSet(task: Task) {
+    const ioctls: IOCTL[] = task.ioctl_data ? JSON.parse(task.ioctl_data) : [];
+    return new Set(ioctls.map((i) => i.code));
+  }
+
+  const leftTask = compareIdxs ? scans[compareIdxs[0]] : null;
+  const rightTask = compareIdxs ? scans[compareIdxs[1]] : null;
+
+  const leftIoctls: IOCTL[] = leftTask?.ioctl_data ? JSON.parse(leftTask.ioctl_data) : [];
+  const rightIoctls: IOCTL[] = rightTask?.ioctl_data ? JSON.parse(rightTask.ioctl_data) : [];
+  const leftCodes = new Set(leftIoctls.map((i) => i.code));
+  const rightCodes = new Set(rightIoctls.map((i) => i.code));
+
+  const leftProfile = leftTask?.profile_data ? JSON.parse(leftTask.profile_data) : {};
+  const rightProfile = rightTask?.profile_data ? JSON.parse(rightTask.profile_data) : {};
+  const leftVulns = leftTask?.vuln_data ? JSON.parse(leftTask.vuln_data) : {};
+  const rightVulns = rightTask?.vuln_data ? JSON.parse(rightTask.vuln_data) : {};
+
+  return (
+    <>
+      <header className="px-6 py-4 border-b border-zinc-800">
+        <h2 className="text-sm font-bold">DRIVER COMPARE</h2>
+        <p className="text-xs text-zinc-600 mt-1">Compare multiple scans of the same driver</p>
+      </header>
+
+      <div className="flex-1 overflow-auto px-6 py-6 space-y-6">
+        {duplicates.length === 0 && !selectedDriver && (
+          <p className="text-zinc-600 text-sm">No drivers with multiple scans found. Scan a driver multiple times to compare versions.</p>
+        )}
+
+        {duplicates.length > 0 && (
+          <div className="border border-zinc-800 p-5">
+            <p className="text-xs text-zinc-500 mb-3">DRIVERS WITH MULTIPLE SCANS</p>
+            {duplicates.map((d) => (
+              <button
+                key={d.driver_name}
+                onClick={() => selectDriver(d.driver_name)}
+                className={`block w-full text-left px-3 py-2 text-xs mb-1 transition-colors ${
+                  selectedDriver === d.driver_name
+                    ? "bg-zinc-800 text-white"
+                    : "hover:bg-zinc-900 text-zinc-400"
+                }`}
+              >
+                {d.driver_name} — {d.scan_count} scans
+              </button>
+            ))}
+          </div>
+        )}
+
+        {selectedDriver && scans.length >= 2 && (
+          <>
+            {/* Scan selector */}
+            <div className="border border-zinc-800 p-5">
+              <p className="text-xs text-zinc-500 mb-3">SELECT SCANS TO COMPARE</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-zinc-600 mb-1 block">LEFT (OLDER)</label>
+                  <select
+                    value={compareIdxs?.[0] ?? 0}
+                    onChange={(e) => setCompareIdxs([Number(e.target.value), compareIdxs?.[1] ?? 1])}
+                    className="w-full bg-zinc-900 border border-zinc-700 px-2 py-1.5 text-xs text-zinc-400"
+                  >
+                    {scans.map((s, i) => (
+                      <option key={i} value={i}>
+                        Scan #{i + 1} — {s.created_at} (@{s.username})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-zinc-600 mb-1 block">RIGHT (NEWER)</label>
+                  <select
+                    value={compareIdxs?.[1] ?? 1}
+                    onChange={(e) => setCompareIdxs([compareIdxs?.[0] ?? 0, Number(e.target.value)])}
+                    className="w-full bg-zinc-900 border border-zinc-700 px-2 py-1.5 text-xs text-zinc-400"
+                  >
+                    {scans.map((s, i) => (
+                      <option key={i} value={i}>
+                        Scan #{i + 1} — {s.created_at} (@{s.username})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Comparison view */}
+            {leftTask && rightTask && (
+              <>
+                {/* Overview comparison */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="border border-zinc-800 p-4">
+                    <p className="text-xs text-zinc-500 mb-2">SCAN #{(compareIdxs?.[0] ?? 0) + 1}</p>
+                    <p className="text-sm text-zinc-300">{leftTask.ioctl_count} IOCTLs</p>
+                    {leftProfile.risk_rating && (
+                      <span className={`text-xs px-1.5 py-0.5 border mt-1 inline-block ${
+                        leftProfile.risk_rating.rating === "CRITICAL" ? "bg-red-500/20 text-red-400 border-red-500/30" : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
+                      }`}>
+                        {leftProfile.risk_rating.rating} ({leftProfile.risk_rating.score})
+                      </span>
+                    )}
+                    <p className="text-xs text-zinc-600 mt-1">Findings: {leftVulns.driver_level?.length || 0} driver-level, {leftVulns.ioctl_level?.length || 0} ioctl-level</p>
+                  </div>
+                  <div className="border border-zinc-800 p-4">
+                    <p className="text-xs text-zinc-500 mb-2">SCAN #{(compareIdxs?.[1] ?? 1) + 1}</p>
+                    <p className="text-sm text-zinc-300">{rightTask.ioctl_count} IOCTLs</p>
+                    {rightProfile.risk_rating && (
+                      <span className={`text-xs px-1.5 py-0.5 border mt-1 inline-block ${
+                        rightProfile.risk_rating.rating === "CRITICAL" ? "bg-red-500/20 text-red-400 border-red-500/30" : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
+                      }`}>
+                        {rightProfile.risk_rating.rating} ({rightProfile.risk_rating.score})
+                      </span>
+                    )}
+                    <p className="text-xs text-zinc-600 mt-1">Findings: {rightVulns.driver_level?.length || 0} driver-level, {rightVulns.ioctl_level?.length || 0} ioctl-level</p>
+                  </div>
+                </div>
+
+                {/* IOCTL diff */}
+                <div className="border border-zinc-800 p-5">
+                  <p className="text-xs text-zinc-500 mb-3">IOCTL DIFF</p>
+
+                  {/* Added IOCTLs */}
+                  {rightIoctls.filter((i) => !leftCodes.has(i.code)).length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-xs text-green-400 mb-1">+ ADDED</p>
+                      {rightIoctls.filter((i) => !leftCodes.has(i.code)).map((ioctl, idx) => (
+                        <div key={idx} className="text-xs bg-green-500/5 border border-green-500/20 px-3 py-1.5 mb-1 flex gap-4">
+                          <span className="text-green-400 font-bold">{ioctl.code}</span>
+                          <span className="text-zinc-400">{ioctl.method}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Removed IOCTLs */}
+                  {leftIoctls.filter((i) => !rightCodes.has(i.code)).length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-xs text-red-400 mb-1">- REMOVED</p>
+                      {leftIoctls.filter((i) => !rightCodes.has(i.code)).map((ioctl, idx) => (
+                        <div key={idx} className="text-xs bg-red-500/5 border border-red-500/20 px-3 py-1.5 mb-1 flex gap-4">
+                          <span className="text-red-400 font-bold">{ioctl.code}</span>
+                          <span className="text-zinc-400">{ioctl.method}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Unchanged IOCTLs */}
+                  {leftIoctls.filter((i) => rightCodes.has(i.code)).length > 0 && (
+                    <div>
+                      <p className="text-xs text-zinc-500 mb-1">= UNCHANGED</p>
+                      {leftIoctls.filter((i) => rightCodes.has(i.code)).map((ioctl, idx) => (
+                        <div key={idx} className="text-xs bg-zinc-900 px-3 py-1.5 mb-1 flex gap-4">
+                          <span className="text-zinc-400 font-bold">{ioctl.code}</span>
+                          <span className="text-zinc-500">{ioctl.method}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {leftIoctls.length === 0 && rightIoctls.length === 0 && (
+                    <p className="text-xs text-zinc-600">No IOCTLs in either scan.</p>
+                  )}
+
+                  {rightIoctls.filter((i) => !leftCodes.has(i.code)).length === 0 &&
+                    leftIoctls.filter((i) => !rightCodes.has(i.code)).length === 0 &&
+                    leftIoctls.length > 0 && (
+                      <p className="text-xs text-zinc-500 mt-2">No IOCTL differences between scans.</p>
+                    )}
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* ============ ACTIVITY LOG TAB ============ */
+
+interface Activity {
+  id: number;
+  user_id: number;
+  username: string;
+  task_id: number;
+  driver_name: string;
+  action: string;
+  detail: string | null;
+  created_at: string;
+}
+
+function ActivityTab() {
+  const [activities, setActivities] = useState<Activity[]>([]);
+
+  useEffect(() => {
+    fetch("/api/activity?limit=100")
+      .then((r) => r.json())
+      .then(setActivities)
+      .catch(() => {});
+  }, []);
+
+  const actionLabels: Record<string, string> = {
+    task_created: "created task",
+    status_change: "changed status",
+    cve_assigned: "assigned CVE",
+    notes_updated: "updated notes",
+  };
+
+  const actionColors: Record<string, string> = {
+    task_created: "text-green-400",
+    status_change: "text-blue-400",
+    cve_assigned: "text-red-400",
+    notes_updated: "text-zinc-400",
+  };
+
+  const grouped: Record<string, Activity[]> = {};
+  for (const a of activities) {
+    const day = (a.created_at || "").substring(0, 10);
+    if (!grouped[day]) grouped[day] = [];
+    grouped[day].push(a);
+  }
+
+  return (
+    <>
+      <header className="px-6 py-4 border-b border-zinc-800">
+        <h2 className="text-sm font-bold">ACTIVITY LOG</h2>
+        <p className="text-xs text-zinc-600 mt-1">Full audit trail of all actions</p>
+      </header>
+
+      <div className="flex-1 overflow-auto px-6 py-6">
+        {activities.length === 0 && (
+          <p className="text-zinc-600 text-sm">No activity recorded yet.</p>
+        )}
+
+        {Object.entries(grouped)
+          .sort(([a], [b]) => b.localeCompare(a))
+          .map(([day, acts]) => (
+            <div key={day} className="mb-6">
+              <p className="text-xs text-zinc-600 mb-2 tracking-wider">{day}</p>
+              <div className="border-l border-zinc-800 ml-2">
+                {acts.map((a) => (
+                  <div key={a.id} className="flex gap-3 mb-3 pl-4 relative">
+                    <span className="absolute -left-[5px] top-1.5 w-2 h-2 bg-zinc-700 rounded-full" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-zinc-300">@{a.username}</span>
+                        <span className={`text-xs ${actionColors[a.action] || "text-zinc-500"}`}>
+                          {actionLabels[a.action] || a.action}
+                        </span>
+                        <span className="text-xs text-zinc-400">{a.driver_name}</span>
+                      </div>
+                      {a.detail && (
+                        <p className="text-xs text-zinc-600 mt-0.5">{a.detail}</p>
+                      )}
+                      <p className="text-xs text-zinc-700 mt-0.5">
+                        {(a.created_at || "").substring(11, 19)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+      </div>
+    </>
   );
 }
