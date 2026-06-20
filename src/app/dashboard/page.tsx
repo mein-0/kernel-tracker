@@ -1012,6 +1012,15 @@ function TaskRow({
             </div>
           )}
 
+          {task.ai_analysis && (
+            <div>
+              <label className="text-xs text-zinc-500 mb-1 block">AI ANALYSIS</label>
+              <pre className="text-xs text-zinc-300 bg-zinc-900 px-4 py-3 overflow-auto max-h-96 whitespace-pre-wrap">
+                {task.ai_analysis}
+              </pre>
+            </div>
+          )}
+
           {isOwner && (
             <div>
               <label className="text-xs text-zinc-500 mb-1 block">CVE ID</label>

@@ -58,6 +58,10 @@ async function init() {
     )
   `);
 
+  await db.execute(
+    `ALTER TABLE tasks ADD COLUMN ai_analysis TEXT`
+  ).catch(() => {});
+
   await db.execute(`
     CREATE TABLE IF NOT EXISTS activity_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

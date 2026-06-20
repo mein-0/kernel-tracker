@@ -37,6 +37,7 @@ export interface Task {
   profile_data: string | null;
   notes: string | null;
   cve_id: string | null;
+  ai_analysis: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -23,8 +23,8 @@ export async function POST(req: Request) {
 
   for (const drv of drivers) {
     const result = await db.execute({
-      sql: `INSERT INTO tasks (user_id, driver_name, driver_hash, status, ioctl_count, ioctl_data, vuln_data, profile_data)
-            VALUES (?, ?, ?, 'researching', ?, ?, ?, ?)`,
+      sql: `INSERT INTO tasks (user_id, driver_name, driver_hash, status, ioctl_count, ioctl_data, vuln_data, profile_data, ai_analysis)
+            VALUES (?, ?, ?, 'researching', ?, ?, ?, ?, ?)`,
       args: [
         user_id,
         drv.filename || drv.target,
@@ -33,6 +33,7 @@ export async function POST(req: Request) {
         drv.ioctls ? JSON.stringify(drv.ioctls) : null,
         drv.vulnerabilities ? JSON.stringify(drv.vulnerabilities) : null,
         drv.profile ? JSON.stringify(drv.profile) : null,
+        drv.ai_analysis || null,
       ],
     });
     created.push(Number(result.lastInsertRowid));
