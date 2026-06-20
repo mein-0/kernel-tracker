@@ -40,6 +40,7 @@ interface IOCTL {
   access?: string;
   description?: string;
   vulnerabilities?: { severity: string; title: string; detail: string }[];
+  ai_exploit?: string;
 }
 
 export default function DashboardPage() {
@@ -814,6 +815,15 @@ function IoctlDetailModal({
               <p>- Handler address reachable via DeviceIoControl() from user mode</p>
             </div>
           </div>
+
+          {ioctl.ai_exploit && (
+            <div>
+              <label className="text-xs text-red-500 mb-2 block font-bold">AI EXPLOIT SKELETON</label>
+              <pre className="text-xs text-zinc-300 bg-zinc-950 border border-zinc-800 px-4 py-3 overflow-auto max-h-96 whitespace-pre-wrap">
+                {ioctl.ai_exploit}
+              </pre>
+            </div>
+          )}
         </div>
       </div>
     </div>
