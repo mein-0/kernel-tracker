@@ -57,6 +57,7 @@ export default function DashboardPage() {
   const [showNotifs, setShowNotifs] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [selectedIoctl, setSelectedIoctl] = useState<{ taskId: number; idx: number } | null>(null);
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -140,6 +141,12 @@ export default function DashboardPage() {
 
   async function deleteTask(id: number) {
     await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+    loadTasks();
+  }
+
+  async function deleteAllMyTasks() {
+    await fetch("/api/tasks", { method: "DELETE" });
+    setConfirmDeleteAll(false);
     loadTasks();
   }
 
@@ -432,12 +439,40 @@ export default function DashboardPage() {
                   {myStats.active} active / {myStats.done} done / {myStats.cves} CVEs
                 </p>
               </div>
-              <button
-                onClick={() => setShowAdd(true)}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 text-xs transition-colors"
-              >
-                + NEW TASK
-              </button>
+              <div className="flex gap-2">
+                {myAll.length > 0 && (
+                  confirmDeleteAll ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-red-400">Delete all {myAll.length} tasks?</span>
+                      <button
+                        onClick={deleteAllMyTasks}
+                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-xs transition-colors"
+                      >
+                        YES, DELETE ALL
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteAll(false)}
+                        className="text-zinc-500 hover:text-zinc-300 px-3 py-1.5 text-xs border border-zinc-700"
+                      >
+                        CANCEL
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDeleteAll(true)}
+                      className="border border-red-600/50 text-red-500 hover:bg-red-600/10 px-4 py-1.5 text-xs transition-colors"
+                    >
+                      DELETE ALL
+                    </button>
+                  )
+                )}
+                <button
+                  onClick={() => setShowAdd(true)}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 text-xs transition-colors"
+                >
+                  + NEW TASK
+                </button>
+              </div>
             </header>
 
             <div className="px-6 py-3 border-b border-zinc-800 flex gap-6">

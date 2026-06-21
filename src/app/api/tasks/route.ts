@@ -64,3 +64,22 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ id: taskId, ok: true }, { status: 201 });
 }
+
+export async function DELETE() {
+  const user = await getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  await db.execute({
+    sql: "DELETE FROM tasks WHERE user_id = ?",
+    args: [user.id],
+  });
+
+  await db.execute({
+    sql: `INSERT INTO activity_log (user_id, username, task_id, driver_name, action, detail) VALUES (?, ?, 0, '-', 'bulk_delete', 'Deleted all own tasks')`,
+    args: [user.id, user.username],
+  });
+
+  return NextResponse.json({ ok: true });
+}
