@@ -58,6 +58,8 @@ export default function DashboardPage() {
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [selectedIoctl, setSelectedIoctl] = useState<{ taskId: number; idx: number } | null>(null);
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedTasks, setSelectedTasks] = useState<Set<number>>(new Set());
   const router = useRouter();
 
   useEffect(() => {
@@ -147,6 +149,26 @@ export default function DashboardPage() {
   async function deleteAllMyTasks() {
     await fetch("/api/tasks", { method: "DELETE" });
     setConfirmDeleteAll(false);
+    loadTasks();
+  }
+
+  function toggleTaskSelection(id: number) {
+    setSelectedTasks((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function deleteSelectedTasks() {
+    await Promise.all(
+      Array.from(selectedTasks).map((id) =>
+        fetch(`/api/tasks/${id}`, { method: "DELETE" })
+      )
+    );
+    setSelectedTasks(new Set());
+    setSelectMode(false);
     loadTasks();
   }
 
@@ -439,8 +461,33 @@ export default function DashboardPage() {
                   {myStats.active} active / {myStats.done} done / {myStats.cves} CVEs
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                {selectMode && selectedTasks.size > 0 && (
+                  <button
+                    onClick={deleteSelectedTasks}
+                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 text-xs transition-colors"
+                  >
+                    DELETE {selectedTasks.size} SELECTED
+                  </button>
+                )}
                 {myAll.length > 0 && (
+                  selectMode ? (
+                    <button
+                      onClick={() => { setSelectMode(false); setSelectedTasks(new Set()); }}
+                      className="text-zinc-500 hover:text-zinc-300 px-3 py-1.5 text-xs border border-zinc-700"
+                    >
+                      CANCEL SELECT
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setSelectMode(true)}
+                      className="border border-zinc-700 text-zinc-500 hover:text-zinc-300 px-4 py-1.5 text-xs transition-colors"
+                    >
+                      SELECT
+                    </button>
+                  )
+                )}
+                {myAll.length > 0 && !selectMode && (
                   confirmDeleteAll ? (
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-red-400">Delete all {myAll.length} tasks?</span>
@@ -517,6 +564,20 @@ export default function DashboardPage() {
                     : "No tasks yet. Click + NEW TASK to start."}
                 </p>
               )}
+              {selectMode && myTasks.length > 0 && (
+                <div className="flex items-center gap-3 mb-2">
+                  <button
+                    onClick={() => {
+                      if (selectedTasks.size === myTasks.length) setSelectedTasks(new Set());
+                      else setSelectedTasks(new Set(myTasks.map((t) => t.id)));
+                    }}
+                    className="text-xs text-zinc-500 hover:text-zinc-300"
+                  >
+                    {selectedTasks.size === myTasks.length ? "DESELECT ALL" : "SELECT ALL"}
+                  </button>
+                  <span className="text-xs text-zinc-600">{selectedTasks.size} selected</span>
+                </div>
+              )}
               {myTasks.map((task) => (
                 <TaskRow
                   key={task.id}
@@ -531,6 +592,9 @@ export default function DashboardPage() {
                   showOwner={false}
                   selectedIoctl={selectedIoctl}
                   onSelectIoctl={setSelectedIoctl}
+                  selectMode={selectMode}
+                  isSelected={selectedTasks.has(task.id)}
+                  onToggleSelect={() => toggleTaskSelection(task.id)}
                 />
               ))}
             </div>
@@ -877,6 +941,9 @@ function TaskRow({
   showOwner,
   selectedIoctl,
   onSelectIoctl,
+  selectMode = false,
+  isSelected = false,
+  onToggleSelect,
 }: {
   task: Task;
   expanded: boolean;
@@ -889,6 +956,9 @@ function TaskRow({
   showOwner: boolean;
   selectedIoctl: { taskId: number; idx: number } | null;
   onSelectIoctl: (v: { taskId: number; idx: number } | null) => void;
+  selectMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const [notes, setNotes] = useState(task.notes || "");
   const [cve, setCve] = useState(task.cve_id || "");
@@ -904,10 +974,19 @@ function TaskRow({
   return (
     <div className="border border-zinc-800 mb-2">
       <div
-        className="flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-zinc-900/50"
-        onClick={onToggle}
+        className={`flex items-center gap-4 px-4 py-3 cursor-pointer hover:bg-zinc-900/50 ${isSelected ? "bg-red-500/5 border-l-2 border-l-red-500" : ""}`}
+        onClick={selectMode ? onToggleSelect : onToggle}
       >
-        <span className="text-zinc-600 text-xs w-4">{expanded ? "v" : ">"}</span>
+        {selectMode && (
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={onToggleSelect}
+            onClick={(e) => e.stopPropagation()}
+            className="accent-red-500 w-3.5 h-3.5 cursor-pointer"
+          />
+        )}
+        {!selectMode && <span className="text-zinc-600 text-xs w-4">{expanded ? "v" : ">"}</span>}
         <span className="flex-1 text-sm">{task.driver_name}</span>
         {showOwner && task.username && (
           <span
